@@ -1,45 +1,83 @@
 #include <ArduinoJson.h>
-#include <SoftwareSerial.h>
 #include "Device.h"
 
-using namespace std;
+int pin1 = 12;
+int pin2 = 13;
+int pin3 = 11;
+int pin4 = 8;
 /*
- * This is the main class to handle the arduino board functionalities
- * and to implement them in a specific order. These functionalities are as such as:
- * - Retriving data from the esp8266 board
- * - translate this data and converte it into states
- * - Apply these states into the connected devices with arduino
- */
+   This is the main class to handle the arduino board functionalities
+   and to implement them in a specific order. These functionalities are as such as:
+   - Retriving data from the esp8266 board
+   - translate this data and converte it into states
+   - Apply these states into the connected devices with arduino
+*/
 
-  SoftwareSerial ESPserial (0, 1);
-
-
-//TODO 
+//TODO
 void setup() {
   Serial.begin(9600);
-  ESPserial.begin(9600);
-  
-  while(!Serial){}
-  
+  pinMode(pin1, OUTPUT);
+  pinMode(pin2, OUTPUT);
+  pinMode(pin3, OUTPUT);
+  pinMode(pin4, OUTPUT);
+
+  // Serial.setTimeout(266);
 }
 
-//TODO get data from esp, handle errors, apply the new states 
+//TODO get data from esp, handle errors, apply the new states
 void loop() {
- 
-    // listen for communication from the ESP8266 and then write it to the serial monitor
-    if ( ESPserial.available() )       {
-        String c = ESPserial.readString();
-        Serial.print(c);
-      }
-    
-    // listen for user input and send it to the ESP8266
-    // if ( Serial.available() )       {  ESPserial.write( Serial.read() );  }
+
+  // listen for communication from the ESP8266 and then write it to the serial monitor
+  if ( Serial.available() ) {
+
+    String c = Serial.readStringUntil('\n');
+    char * json = const_cast<char*>(c.c_str());
+    Serial.println(json);
+
+    readJSON(json);
 
 
-    Device device(12, "wifi", "OFF");
-    Device devices[15];
-    devices[0] = device;
-    
-    Serial.println( devices[0].getStatus() );
-    Serial.println(devices[0].getName());
+    //Serial.print(c);
+    //    Serial.flush();
+  }
+
+  //    Device device(12, "wifi", "OFF");
+  //    Device devices[15];
+  //    devices[0] = device;
+  //
+  //Serial.println( devices[0].getStatus() );
+  // Serial.println(devices[0].getName());
+}
+
+
+void readJSON( char* json ) {
+  const size_t capacity = JSON_ARRAY_SIZE(9) + 9 * JSON_OBJECT_SIZE(3) + 490;
+  DynamicJsonDocument doc(capacity);
+
+
+  deserializeJson(doc, json);
+
+  JsonObject root_0 = doc[0];
+  const char* root_0_deviceId = root_0["deviceId"]; // "1"
+  const char* root_0_deviceName = root_0["deviceName"]; // "indoor lamp"
+  const char* root_0_deviceStatus = root_0["deviceStatus"]; // "off"
+
+  Serial.println(root_0_deviceId);
+  Serial.println(root_0_deviceName);
+  Serial.println(root_0_deviceStatus);
+
+  if (root_0_deviceStatus == "off") {
+    pinOutput(1, 0, 1, 0);
+    Serial.println("The lamp is off");
+  } else if ("on") {
+    pinOutput(0, 0, 1, 0);
+    Serial.println("The lamp is on");
+  }
+}
+
+void pinOutput(int a, int b, int c, int d) {
+  digitalWrite(pin1, a);
+  digitalWrite(pin2, b);
+  digitalWrite(pin3, c);
+  digitalWrite(pin4, d);
 }
