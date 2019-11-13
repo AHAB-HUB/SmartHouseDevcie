@@ -10,8 +10,8 @@
 #include <ESP8266WiFi.h>
 #include "RestClient.h"
 
-const char* ssid     = "ASUS_2G";
-const char* password = "greatdaisy150";
+const char* ssid     = "NETGEAR68";
+const char* password = "greatdaisy160";
 
 //TODO connect to wifi,establish connection with the server
 void setup() {
@@ -22,7 +22,6 @@ void setup() {
   Serial.end();
   Serial.begin(9600); // serial is ready to communicate with arduino
   delay(10);
-  Serial.setTimeout(266);
 
   //TODO put this loop in a method so we call it whenever the connection is lost
   WiFi.begin(ssid, password);  // Connect to the network
@@ -48,9 +47,10 @@ void setup() {
 //TODO get data from server, check if data is valid and usable, send data to arduino
 void loop() {
 
-  if (WiFi.status() == WL_CONNECTED) { //Check WiFi connection status
+  if (WiFi.status() == WL_CONNECTED && Serial.availableForWrite() ) { //Check WiFi connection status
       RestClient rest;
       Serial.println(rest.getDevices());
-      Serial.flush();
   }
+
+  delay(1000); // request data each 1 sec
 }

@@ -12,9 +12,7 @@ class Device{
   void setID(int id1);
   void setName(char* name1);
   void setStatus(char* state1);
-
   void operator=(const Device f) const;
-
     
   private:
   int id;

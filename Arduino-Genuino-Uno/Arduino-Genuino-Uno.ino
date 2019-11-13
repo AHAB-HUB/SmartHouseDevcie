@@ -21,7 +21,6 @@ void setup() {
   pinMode(pin3, OUTPUT);
   pinMode(pin4, OUTPUT);
 
-  // Serial.setTimeout(266);
 }
 
 //TODO get data from esp, handle errors, apply the new states
@@ -31,11 +30,11 @@ void loop() {
   if ( Serial.available() ) {
 
     String c = Serial.readStringUntil('\n');
+    Serial.println( Serial.available() );
     char * json = const_cast<char*>(c.c_str());
     Serial.println(json);
 
     readJSON(json);
-
 
     //Serial.print(c);
     //    Serial.flush();
@@ -54,22 +53,23 @@ void readJSON( char* json ) {
   const size_t capacity = JSON_ARRAY_SIZE(9) + 9 * JSON_OBJECT_SIZE(3) + 490;
   DynamicJsonDocument doc(capacity);
 
+  DeserializationError err = deserializeJson(doc, json);
 
-  deserializeJson(doc, json);
+ 
 
   JsonObject root_0 = doc[0];
   const char* root_0_deviceId = root_0["deviceId"]; // "1"
   const char* root_0_deviceName = root_0["deviceName"]; // "indoor lamp"
   const char* root_0_deviceStatus = root_0["deviceStatus"]; // "off"
 
-  Serial.println(root_0_deviceId);
-  Serial.println(root_0_deviceName);
-  Serial.println(root_0_deviceStatus);
+//  Serial.println(root_0_deviceId);
+  //Serial.println(root_0_deviceName);
+ // Serial.println(root_0_deviceStatus);
 
-  if (root_0_deviceStatus == "off") {
+  if (strcmp ("off", root_0_deviceStatus) == 0) {
     pinOutput(1, 0, 1, 0);
     Serial.println("The lamp is off");
-  } else if ("on") {
+  } else if (strcmp ("on", root_0_deviceStatus) == 0) {
     pinOutput(0, 0, 1, 0);
     Serial.println("The lamp is on");
   }
