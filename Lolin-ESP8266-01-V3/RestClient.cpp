@@ -1,9 +1,8 @@
-#include"RestClient.h"
+#include "RestClient.h"
 
 RestClient::RestClient()
 {
   httpCode = -1;
- 
 }
 
 RestClient::~RestClient()
@@ -13,13 +12,12 @@ RestClient::~RestClient()
 
 String RestClient::getDevices()
 {
-  String tmp = smartHouseURL + devicesURL;
-  http.begin(tmp);
+  http.begin(smartHouseURL + devicesURL);
   httpCode = http.GET();
   return (httpCode > 0)? http.getString() : " ";
 }
 
-void RestClient::postNewDevice(String device)
+void RestClient::postDevices(String devices)
 {
   
 }
