@@ -53,6 +53,8 @@ void serializeAndPost() {
   Serial.write('\n');
 }
 
+
+
 void establishWifiConnection(String message) {
 
   if (WiFi.status() != WL_CONNECTED) {
