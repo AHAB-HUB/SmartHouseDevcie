@@ -1,8 +1,4 @@
 #include <PinChangeInterrupt.h>
-#include <PinChangeInterruptBoards.h>
-#include <PinChangeInterruptPins.h>
-#include <PinChangeInterruptSettings.h>
-
 #include <ArduinoJson.h>
 #include "Device.h"
 
@@ -13,21 +9,38 @@
    - translate this data and converte it into states
    - Apply these states into the connected devices with arduino
 */
+
+//Pins
 int pin1 = 12;
 int pin2 = 13;
 int pin3 = 11;
 int pin4 = 8;
+int pinINTFireAlarm = 2;
+int pinINTBurglarAlarm = 3;
+int pinINTWaterLeakage = 4;
+int pinINTStove = 5;
+int pinINTWindow = 6;
 
-unsigned long previousMillis = 0;
-unsigned long interval = 1000;
-int a = 60;
+//Timer's attributes
+unsigned long volatile previousMillis = 0;
+unsigned long interval = 2000;
 
+//Booleans
 bool ready  = true;
 bool newData = false;
 bool volatile isInterrupt = false;
+// Strings
 String recData;
 String temp;
-int pinINT = 5;
+String seData;
+// int
+int volatile fireAlarm = 0;
+int volatile burglarAlarm = 0;
+int volatile waterLeakage = 0;
+int volatile stove = 0;
+int volatile window = 0;
+int volatile power = 0;
+int volatile lightSensor = 0;
 
 void setup() {
   Serial.begin(115200);
@@ -35,16 +48,26 @@ void setup() {
   pinMode(pin2, OUTPUT);
   pinMode(pin3, OUTPUT);
   pinMode(pin4, OUTPUT);
-  pinMode(pinINT, INPUT_PULLUP);
-  attachPCINT(digitalPinToPCINT(pinINT), interrupt, FALLING);
+
+  pinMode(pinINTFireAlarm, INPUT_PULLUP);
+  pinMode(pinINTBurglarAlarm, INPUT_PULLUP);
+  pinMode(pinINTWaterLeakage, INPUT_PULLUP);
+  pinMode(pinINTStove, INPUT_PULLUP);
+  pinMode(pinINTWindow, INPUT_PULLUP);
+
+  attachPCINT(digitalPinToPCINT(pinINTFireAlarm), interrupt, FALLING);
+  attachPCINT(digitalPinToPCINT(pinINTBurglarAlarm), interrupt, FALLING);
+  attachPCINT(digitalPinToPCINT(pinINTWaterLeakage), interrupt, FALLING);
+  attachPCINT(digitalPinToPCINT(pinINTStove), interrupt, FALLING);
+  attachPCINT(digitalPinToPCINT(pinINTWindow), interrupt, FALLING);
 
   Serial.flush();
 }
 
 void loop() {
   isInterrupt = false;
-  if (ready) {
 
+  if (ready) {
     clearSerialBuffer();
     Serial.write("ready\n");
     receiveData();
@@ -54,18 +77,23 @@ void loop() {
     Serial.write(temp.c_str());
     Serial.write('\n');
   }
-  timer();
 
   if (newData && !isInterrupt) {
     readJSON( const_cast<char*>(recData.c_str()) );
     temp = recData;
   }
+  timer();
 }
 
 void interrupt() {
+  previousMillis = millis(); // to prevent the timer to interfere with the interrupt
   isInterrupt = true;
+  fireAlarm = digitalRead(pinINTFireAlarm);
+  burglarAlarm = digitalRead(pinINTBurglarAlarm);
+  waterLeakage = digitalRead(pinINTWaterLeakage);
+  stove = digitalRead(pinINTStove);
+  window = digitalRead(pinINTWindow);
   sendData();
-  // delay(1000);
   ready = true;
 }
 
@@ -89,7 +117,27 @@ void timer() {
 
 void sendData() {
   clearSerialBuffer();
-  Serial.write("{\"1\":1,\"2\":0,\"3\":25,\"4\":11,\"5\":0,\"6\":0,\"7\":0,\"8\":0,\"9\":0,\"10\":0,\"11\":0,\"12\":0,\"13\":0,\"14\":0,\"15\":0}\n");
+  buildStringFormat();
+  Serial.write(seData.c_str());
+  Serial.write('\n');
+}
+
+void buildStringFormat(){
+    seData  = "{\"6\":";
+    seData += power;
+    seData += ",\"7\":"; 
+    seData += fireAlarm; 
+    seData += ",\"8\":";
+    seData += burglarAlarm;
+    seData += ",\"10\":";
+    seData += waterLeakage;
+    seData += ",\"11\":";
+    seData += stove;
+    seData += ",\"12\":";
+    seData += window;
+    seData += ",\"15\":";
+    seData += lightSensor;
+    seData += "}";
 }
 
 void clearSerialBuffer() {
