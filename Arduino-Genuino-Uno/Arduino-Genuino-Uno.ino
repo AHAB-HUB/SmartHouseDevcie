@@ -34,13 +34,13 @@ String recData;
 String temp;
 String seData;
 // int
-int volatile fireAlarm = 0;
-int volatile burglarAlarm = 0;
-int volatile waterLeakage = 0;
-int volatile stove = 0;
-int volatile window = 0;
-int volatile power = 0;
-int volatile lightSensor = 0;
+bool volatile fireAlarm ;
+bool volatile burglarAlarm;
+bool volatile waterLeakage ;
+bool volatile stove ;
+bool volatile window ;
+bool volatile power;
+bool volatile lightSensor;
 
 void setup() {
   Serial.begin(115200);
@@ -55,11 +55,12 @@ void setup() {
   pinMode(pinINTStove, INPUT_PULLUP);
   pinMode(pinINTWindow, INPUT_PULLUP);
 
-  attachPCINT(digitalPinToPCINT(pinINTFireAlarm), interrupt, FALLING);
-  attachPCINT(digitalPinToPCINT(pinINTBurglarAlarm), interrupt, FALLING);
-  attachPCINT(digitalPinToPCINT(pinINTWaterLeakage), interrupt, FALLING);
-  attachPCINT(digitalPinToPCINT(pinINTStove), interrupt, FALLING);
-  attachPCINT(digitalPinToPCINT(pinINTWindow), interrupt, FALLING);
+  attachInterrupt(digitalPinToInterrupt(pinINTFireAlarm), interrupt, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(pinINTBurglarAlarm), interrupt, CHANGE);
+
+  attachPCINT(digitalPinToPCINT(pinINTWaterLeakage), interrupt, CHANGE);
+  attachPCINT(digitalPinToPCINT(pinINTStove), interrupt, CHANGE);
+  attachPCINT(digitalPinToPCINT(pinINTWindow), interrupt, CHANGE);
 
   Serial.flush();
 }
@@ -82,7 +83,7 @@ void loop() {
     readJSON( const_cast<char*>(recData.c_str()) );
     temp = recData;
   }
-  timer();
+ // timer();
 }
 
 void interrupt() {
