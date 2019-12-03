@@ -83,7 +83,7 @@ void loop() {
 
   if (ready) {
     clearSerialBuffer();
-    Serial.print(stove);
+    delay(100);
     Serial.write("ready\n");
     receiveData();
   }
