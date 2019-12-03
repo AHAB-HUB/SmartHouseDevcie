@@ -6,14 +6,13 @@
     - Handle communication errors
     - Receive data from server and forward it to the arduino board
 */
-
 #include <ESP8266WiFi.h>
 #include "RestClient.h"
 
 const char* ssid     = "ASUS_2G";
 const char* password = "greatdaisy150";
 RestClient rest;
-bool newData = false;
+bool   newData = false;
 String recData;
 
 void setup() {
@@ -49,11 +48,11 @@ void receiveData() {
 
 void serializeAndPost() {
   Serial.write("recevied from serial: ");
+  rest.putDevices(recData);
+  Serial.print(rest.responseCode());
   Serial.write(recData.c_str());
   Serial.write('\n');
 }
-
-
 
 void establishWifiConnection(String message) {
 

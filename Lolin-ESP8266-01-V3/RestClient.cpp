@@ -12,16 +12,16 @@ RestClient::~RestClient()
 
 String RestClient::getDevices()
 {
-  http.begin(smartHouseURL + getDevicesURL);
+  http.begin(smartHouseURL + devicesURL);
   httpCode = http.GET();
   return (httpCode > 0)? http.getString() : " ";
 }
 
 void RestClient::putDevices(String device)
 {
-  http.begin(smartHouseURL + putDeviceURL);
-  http.addHeader("Content-Type", "application/json;charset=UTF-8");
-  httpCode = http.PUT(device);
+  http.begin(smartHouseURL + devicesURL);
+  http.addHeader("Content-Type", "application/json");
+  httpCode = http.sendRequest("PUT", device.c_str());
 }
 
 int RestClient::responseCode()
