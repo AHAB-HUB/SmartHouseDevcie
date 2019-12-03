@@ -1,3 +1,6 @@
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
 #include <PinChangeInterrupt.h>
 #include <ArduinoJson.h>
 #include "Device.h"
@@ -20,7 +23,16 @@ int pinINTBurglarAlarm = 3;
 int pinINTWaterLeakage = 4;
 int pinINTStove = 5;
 int pinINTWindow = 6;
-
+int pinLDR = A3;
+int pinIndoorTemp = A1;
+int pinIndoorTempVind = A2;
+int pinOutdoorTemp = 9;
+OneWire oneWireIndoor(pinIndoorTemp);
+OneWire oneWireIndoorVind(pinIndoorTempVind);
+OneWire oneWireOutdoor(pinOutdoorTemp);
+DallasTemperature sensors1(&oneWireIndoor);
+DallasTemperature sensors2(&oneWireIndoorVind);
+DallasTemperature sensors3(&oneWireOutdoor);
 //Timer's attributes
 unsigned long volatile previousMillis = 0;
 unsigned long interval = 2000;
@@ -39,8 +51,8 @@ bool volatile burglarAlarm;
 bool volatile waterLeakage ;
 bool volatile stove ;
 bool volatile window ;
-bool volatile power;
-bool volatile lightSensor;
+int volatile power;
+int volatile LDRValue;
 
 void setup() {
   Serial.begin(115200);
@@ -48,12 +60,13 @@ void setup() {
   pinMode(pin2, OUTPUT);
   pinMode(pin3, OUTPUT);
   pinMode(pin4, OUTPUT);
+  pinMode(pinLDR, INPUT);
 
-  pinMode(pinINTFireAlarm, INPUT_PULLUP);
-  pinMode(pinINTBurglarAlarm, INPUT_PULLUP);
-  pinMode(pinINTWaterLeakage, INPUT_PULLUP);
-  pinMode(pinINTStove, INPUT_PULLUP);
-  pinMode(pinINTWindow, INPUT_PULLUP);
+  pinMode(pinINTFireAlarm, INPUT);
+  pinMode(pinINTBurglarAlarm, INPUT);
+  pinMode(pinINTWaterLeakage, INPUT);
+  pinMode(pinINTStove, INPUT);
+  pinMode(pinINTWindow, INPUT);
 
   attachInterrupt(digitalPinToInterrupt(pinINTFireAlarm), interrupt, CHANGE);
   attachInterrupt(digitalPinToInterrupt(pinINTBurglarAlarm), interrupt, CHANGE);
@@ -70,6 +83,7 @@ void loop() {
 
   if (ready) {
     clearSerialBuffer();
+    Serial.print(stove);
     Serial.write("ready\n");
     receiveData();
   }
@@ -87,6 +101,8 @@ void loop() {
 }
 
 void interrupt() {
+  cli();
+ 
   previousMillis = millis(); // to prevent the timer to interfere with the interrupt
   isInterrupt = true;
   fireAlarm = digitalRead(pinINTFireAlarm);
@@ -96,6 +112,8 @@ void interrupt() {
   window = digitalRead(pinINTWindow);
   sendData();
   ready = true;
+  yield();
+  sei();
 }
 
 void receiveData() {
@@ -137,7 +155,7 @@ void buildStringFormat(){
     seData += ",\"12\":";
     seData += window;
     seData += ",\"15\":";
-    seData += lightSensor;
+    seData += LDRValue;
     seData += "}";
 }
 
@@ -167,6 +185,26 @@ void readJSON( const char* json ) {
     digitalWrite(13, HIGH);
     //Serial.println("The lamp is on");
   }
+}
+
+void alarm(){
+  
+}
+
+void LDRSensor(){
+  LDRValue = analogRead(pinLDR);
+}
+
+void temperature(){
+  sensors1.requestTemperatures();  
+  Serial.print("Temperature is: ");
+  Serial.println(sensors1.getTempCByIndex(0));
+  sensors2.requestTemperatures();  
+  Serial.print("Temperature is: ");
+  Serial.println(sensors2.getTempCByIndex(0));
+  sensors2.requestTemperatures();  
+  Serial.print("Temperature is: ");
+  Serial.println(sensors2.getTempCByIndex(0));
 }
 
 void pinOutput(int a, int b, int c, int d) {
