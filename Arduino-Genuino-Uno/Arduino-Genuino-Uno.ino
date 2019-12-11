@@ -23,7 +23,6 @@ int pinINTBurglarAlarm = 3;
 int pinINTWaterLeakage = 4;
 int pinINTStove = 5;
 int pinINTWindow = 6;
-int pinLDR = A3;
 int pinIndoorTemp = A1;
 int pinIndoorTempVind = A2;
 int pinOutdoorTemp = 9;
@@ -53,6 +52,12 @@ bool volatile stove ;
 bool volatile window ;
 int volatile power;
 int volatile LDRValue;
+
+
+ bool oldbool = true;
+ bool daylight;
+ int ldrStore = 0;
+int ldrSensor = A3;
 
 void setup() {
   Serial.begin(115200);
@@ -192,7 +197,19 @@ void alarm(){
 }
 
 void LDRSensor(){
-  LDRValue = analogRead(pinLDR);
+   //LDR
+  ldrStore = analogRead(ldrSensor);
+ daylight = (ldrStore < 200);
+
+if  (oldbool != daylight){
+  oldbool = daylight;
+  if (daylight){
+  pinOutput(1,1,1,0);
+  }else{
+  pinOutput(1,1,1,1);
+  }
+}
+
 }
 
 void temperature(){
