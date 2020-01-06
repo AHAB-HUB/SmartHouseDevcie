@@ -13,25 +13,28 @@
    - Apply these states into the connected devices with arduino
 */
 
+int oldvalueoutdoorLamp = 0;
+//SMT160 sensor: outside
+unsigned int waveHighTimeCount;
+unsigned int waveLowTimeCount;
+float dutyCycle;
+int sampleSize;
+
 //Pins
 int pin1 = 12;
 int pin2 = 13;
 int pin3 = 11;
 int pin4 = 8;
+int pin7 = 7;
+int pinTempIn1 = A1;//Analog Temperature ( 2 sensors inside house)
+int pinTempIn2 = A2;
 int pinINTFireAlarm = 2;
 int pinINTBurglarAlarm = 3;
 int pinINTWaterLeakage = 4;
 int pinINTStove = 5;
 int pinINTWindow = 6;
-int pinIndoorTemp = A1;
-int pinIndoorTempVind = A2;
-int pinOutdoorTemp = 9;
-OneWire oneWireIndoor(pinIndoorTemp);
-OneWire oneWireIndoorVind(pinIndoorTempVind);
-OneWire oneWireOutdoor(pinOutdoorTemp);
-DallasTemperature sensors1(&oneWireIndoor);
-DallasTemperature sensors2(&oneWireIndoorVind);
-DallasTemperature sensors3(&oneWireOutdoor);
+int pinTempOut = 9; //create the instance, sensor connected to 9
+int pinFan = 10;
 //Timer's attributes
 unsigned long volatile previousMillis = 0;
 unsigned long interval = 2000;
@@ -42,30 +45,38 @@ bool newData = false;
 bool volatile isInterrupt = false;
 // Strings
 String recData;
-String temp;
 String seData;
+
 // int
 bool volatile fireAlarm ;
 bool volatile burglarAlarm;
 bool volatile waterLeakage ;
 bool volatile stove ;
 bool volatile window ;
-int volatile power;
+bool volatile power;
 int volatile LDRValue;
 
-
- bool oldbool = true;
- bool daylight;
- int ldrStore = 0;
+bool oldbool = true;
+bool daylight;
+int ldrStore = 0;
 int ldrSensor = A3;
+
+
+OneWire oneWire(pinTempOut); //oneWire instance to communicate device
+DallasTemperature tempOut(&oneWire); //pass onewire to dallas temp sensor
+float indoorTemp;
+float outdoorTemp;
 
 void setup() {
   Serial.begin(115200);
-  pinMode(13,   OUTPUT); //13 is the built in led, it is used fro testing. replace with pin 1 on the production
-  pinMode(pin2, OUTPUT);
-  pinMode(pin3, OUTPUT);
-  pinMode(pin4, OUTPUT);
-  pinMode(pinLDR, INPUT);
+  tempOut.begin(); //initialize temp sensor
+  pinMode(pin1,   OUTPUT);
+  pinMode(pin2,   OUTPUT);
+  pinMode(pin3,   OUTPUT);
+  pinMode(pin4,   OUTPUT);
+  pinMode(ldrSensor, INPUT);
+  pinMode(pinFan, OUTPUT);
+  pinMode (pin7,  INPUT); //power
 
   pinMode(pinINTFireAlarm, INPUT);
   pinMode(pinINTBurglarAlarm, INPUT);
@@ -93,31 +104,25 @@ void loop() {
     receiveData();
   }
 
-  if (recData == "0") {
-    Serial.write(temp.c_str());
-    Serial.write('\n');
-  }
-
   if (newData && !isInterrupt) {
     readJSON( const_cast<char*>(recData.c_str()) );
-    temp = recData;
   }
- // timer();
+
+  LDRSensor();
+  temperature();
+  powerCheck();
+  timer();
 }
 
 void interrupt() {
   cli();
- 
+
   previousMillis = millis(); // to prevent the timer to interfere with the interrupt
   isInterrupt = true;
-  fireAlarm = digitalRead(pinINTFireAlarm);
-  burglarAlarm = digitalRead(pinINTBurglarAlarm);
-  waterLeakage = digitalRead(pinINTWaterLeakage);
-  stove = digitalRead(pinINTStove);
-  window = digitalRead(pinINTWindow);
   sendData();
   ready = true;
   yield();
+
   sei();
 }
 
@@ -141,27 +146,32 @@ void timer() {
 
 void sendData() {
   clearSerialBuffer();
+  powerCheck();
   buildStringFormat();
   Serial.write(seData.c_str());
   Serial.write('\n');
 }
 
-void buildStringFormat(){
-    seData  = "{\"6\":";
-    seData += power;
-    seData += ",\"7\":"; 
-    seData += fireAlarm; 
-    seData += ",\"8\":";
-    seData += burglarAlarm;
-    seData += ",\"10\":";
-    seData += waterLeakage;
-    seData += ",\"11\":";
-    seData += stove;
-    seData += ",\"12\":";
-    seData += window;
-    seData += ",\"15\":";
-    seData += LDRValue;
-    seData += "}";
+void buildStringFormat() {
+  seData  = "{\"3\":";
+  seData +=  indoorTemp;
+  seData += ",\"4\":";
+  seData += outdoorTemp;
+  seData += ",\"6\":";
+  seData += power;
+  seData += ",\"7\":";
+  seData += fireAlarm;
+  seData += ",\"8\":";
+  seData += burglarAlarm;
+  seData += ",\"10\":";
+  seData += waterLeakage;
+  seData += ",\"11\":";
+  seData += stove;
+  seData += ",\"12\":";
+  seData += window;
+  seData += ",\"15\":";
+  seData += LDRValue;
+  seData += "}";
 }
 
 void clearSerialBuffer() {
@@ -171,57 +181,134 @@ void clearSerialBuffer() {
 
 void readJSON( const char* json ) {
   newData = false;
-  ready = true;
+  ready   = true;
   StaticJsonDocument < JSON_OBJECT_SIZE(15) + 40 > doc;
   DeserializationError err = deserializeJson(doc, json);
+  // {"1":0,"2":0,"3":0,"4":0,"5":0,"6":0,"7":0,"8":0,"9":0,"10":0,"11":0,"12":0,"13":0,"14":0,"15":0}
 
   if (err.c_str() != "Ok") {
-    //delay(1000);
-    //Serial.write("Failed to read json\n");
     return;
   }
 
+  //indoor lamp
   if ( doc["1"] == 0 ) {
     pinOutput(1, 0, 1, 0);
-    digitalWrite(13, LOW);
-    //Serial.println("The lamp is off");
   } else if ( doc["1"] == 1 ) {
     pinOutput(0, 0, 1, 0);
-    digitalWrite(13, HIGH);
-    //Serial.println("The lamp is on");
+  }
+  delay(50);
+  //outdoor lamp
+  if ((oldvalueoutdoorLamp != doc["2"])) {
+    oldvalueoutdoorLamp = doc["2"];
+
+    if ( doc["2"] == 0) {
+      pinOutput(1, 1, 1, 1);
+    } else if ( doc["2"] == 1 ) {
+      pinOutput(0, 1, 1, 1);
+    }
+  }
+  delay(50);
+  //radiator
+  if ( doc["5"] == 0 ) {
+    pinOutput(1, 1, 1, 0);
+    delay(50);
+    pinOutput(1, 1, 0, 1);
+  } else if ( doc["5"] == 1 ) {
+    pinOutput(0, 1, 0, 1);
+    delay(50);
+    pinOutput(0, 1, 1, 0);
+  }
+  delay(50);
+  //fan
+  String b = doc["9"];
+  analogWrite(pinFan, b.toInt());
+  delay(50);
+  //timer 1
+  if ( doc["13"] == 0 ) {
+    pinOutput(1, 1, 0, 0);
+  } else if ( doc["13"] == 1 ) {
+    pinOutput(0, 1, 0, 0);
+  }
+  delay(50);
+  //timer 2
+  if ( doc["14"] == 0  ) {
+    pinOutput(1, 0, 0, 1);
+  } else if ( doc["14"] == 1 ) {
+    pinOutput(0, 0, 0, 1);
   }
 }
 
-void alarm(){
-  
-}
+//void alarm() {
+//
+//  if  (fireAlarm | stove | waterLeakage | window) {
+//    pinOutput(1, 0, 0, 0);
+//    delay(50);
+//    pinOutput(0, 0,  1, 1);
+//  } else {
+//    pinOutput(1, 0, 0, 0);
+//    delay(50);
+//    pinOutput(1, 0, 1, 1);
+//  }
+//  delay(50);
+//}
 
-void LDRSensor(){
-   //LDR
+void LDRSensor() {
+  //LDR
   ldrStore = analogRead(ldrSensor);
- daylight = (ldrStore < 200);
+  daylight = (ldrStore < 200);
 
-if  (oldbool != daylight){
-  oldbool = daylight;
-  if (daylight){
-  pinOutput(1,1,1,0);
-  }else{
-  pinOutput(1,1,1,1);
+  if  (oldbool != daylight) {
+    oldbool = daylight;
+    if (daylight) {
+      LDRValue = 1;
+      pinOutput(0, 1, 1, 1);
+    } else {
+      LDRValue = 0;
+      pinOutput(1, 1, 1, 1);
+    }
   }
 }
 
+void temperature() {
+
+  // House 1st inside temperature sensor calculated in both centimeter/ fahrenheit
+  int readPin1 = analogRead(pinTempIn1); //enter pin to read
+  indoorTemp = (5.0 * readPin1 * 100.0) / (1024 * 10);
+
+  // House 2nd inside temperature sensor calculated in both centimeter/ fahrenheit
+  //  int readPin2 = analogRead(pinTempIn2) //enter pin to read
+  //  float volts2 = readPin2 * 0.5;
+  //
+  //  volts2 /= 1024.0;
+  //  float tempInCent2 = (volts2 - 0.5) * 100;
+  //  float tempInFar2  = (tempInCent2 * 9.0 / 5.0) + 32.0;
+
+  //for SMT160 sensor with duty cycle
+  waveHighTimeCount = 0;
+  waveLowTimeCount = 0;
+  sampleSize = 0;
+
+  do {
+    sampleSize++;
+    waveHighTimeCount = waveHighTimeCount + pulseIn(pinTempOut, HIGH);
+    waveLowTimeCount = waveLowTimeCount   + pulseIn(pinTempOut, LOW);
+  }
+  while (sampleSize < 200);
+
+  dutyCycle = waveHighTimeCount;
+  dutyCycle /= (waveHighTimeCount + waveLowTimeCount);
+
+  //cal temperature: using DC is (0.320 + 0.00470 = Temp)
+  outdoorTemp = (dutyCycle - 0.320) / 0.00470;
 }
 
-void temperature(){
-  sensors1.requestTemperatures();  
-  Serial.print("Temperature is: ");
-  Serial.println(sensors1.getTempCByIndex(0));
-  sensors2.requestTemperatures();  
-  Serial.print("Temperature is: ");
-  Serial.println(sensors2.getTempCByIndex(0));
-  sensors2.requestTemperatures();  
-  Serial.print("Temperature is: ");
-  Serial.println(sensors2.getTempCByIndex(0));
+void powerCheck() {
+
+  fireAlarm    = digitalRead(pinINTFireAlarm);
+  burglarAlarm = !digitalRead(pinINTBurglarAlarm);
+  waterLeakage = digitalRead(pinINTWaterLeakage);
+  stove        = digitalRead(pinINTStove);
+  window       = digitalRead(pinINTWindow);
 }
 
 void pinOutput(int a, int b, int c, int d) {

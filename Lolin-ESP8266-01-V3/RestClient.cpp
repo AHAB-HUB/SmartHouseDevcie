@@ -25,6 +25,6 @@ void RestClient::putDevices(String device)
 }
 
 int RestClient::responseCode()
-{
+{   
   return httpCode;
 }

@@ -1,12 +1,9 @@
 #include <DallasTemperature.h>
-
 #include <OneWire.h>
 
 //Digital temperature (outside house)
 const int pinTempOut = 9; //create the instance, sensor connected to 9
-
 OneWire oneWire(pinTempOut); //oneWire instance to communicate device
-
 DallasTemperature tempOut(&oneWire); //pass onewire to dallas temp sensor
 
 //Analog Temperature ( 2 sensors inside house)
@@ -21,8 +18,7 @@ int sampleSize;
 
 void setup(){
   Serial.begin(115200); //initialize serial monitor @baud rate
-  tempOut.begin(); //initialize temp sensor
-  
+
 }
 void loop(){
   //House outside temperature
@@ -50,20 +46,6 @@ void loop(){
   Serial.print("Inside Temperature 2nd: ");
   Serial.println(tempInCent2);
 
-//Check for level of temp to trigger alarm
-  if(tempInCent1 > 30){
-
-    if(tempInCent2 <= 15){
-      //trigger alarm
-    }
-    else{
-      //No alarm
-    }
-    
-  }else{
-    // No alarm
-  }
-
 //for SMT160 sensor with duty cycle
   waveHighTimeCount = 0;
   waveLowTimeCount = 0;
@@ -81,7 +63,6 @@ void loop(){
 
 //cal temperature: using DC is (0.320 + 0.00470 = Temp)
     float temperature = (dutyCycle - 0,320)/ 0.00470;
-    Serial.print("Temperature C: ");
     Serial.println(temperature);
 
     delay(5000);
