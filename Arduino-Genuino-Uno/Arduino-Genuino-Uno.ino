@@ -4,7 +4,6 @@
 #include <PinChangeInterrupt.h>
 #include <ArduinoJson.h>
 #include "Device.h"
-
 /*
    This is the main class to handle the arduino board functionalities
    and to implement them in a specific order. These functionalities are as such as:
@@ -61,6 +60,15 @@ bool daylight;
 int ldrStore = 0;
 int ldrSensor = A3;
 
+int old1;
+int old2;
+int old5;
+int old6;
+int old9;
+int old13;
+int old14;
+int isAlarm = true;
+bool initialize = true;
 
 OneWire oneWire(pinTempOut); //oneWire instance to communicate device
 DallasTemperature tempOut(&oneWire); //pass onewire to dallas temp sensor
@@ -106,19 +114,19 @@ void loop() {
 
   if (newData && !isInterrupt) {
     readJSON( const_cast<char*>(recData.c_str()) );
+    LDRSensor();
+      alarm();
+    temperature();
+    powerCheck();
+    timer();
   }
-
-  LDRSensor();
-  temperature();
-  powerCheck();
-  timer();
 }
 
 void interrupt() {
   cli();
-
   previousMillis = millis(); // to prevent the timer to interfere with the interrupt
   isInterrupt = true;
+  isAlarm = true;
   sendData();
   ready = true;
   yield();
@@ -179,6 +187,16 @@ void clearSerialBuffer() {
     Serial.read();
 }
 
+void initialSetup(StaticJsonDocument < JSON_OBJECT_SIZE(15) + 40 > doc) {
+  old1 = doc["1"];
+  old2 = doc["2"];
+  old5 = doc["5"];
+  old6 = doc["6"];
+  old9 = doc["9"];
+  old13 = doc["13"];
+  old14 = doc["14"];
+}
+
 void readJSON( const char* json ) {
   newData = false;
   ready   = true;
@@ -186,17 +204,18 @@ void readJSON( const char* json ) {
   DeserializationError err = deserializeJson(doc, json);
   // {"1":0,"2":0,"3":0,"4":0,"5":0,"6":0,"7":0,"8":0,"9":0,"10":0,"11":0,"12":0,"13":0,"14":0,"15":0}
 
+  initialSetup(doc);
+
   if (err.c_str() != "Ok") {
     return;
   }
 
   //indoor lamp
-  if ( doc["1"] == 0 ) {
+  if ( doc["1"] == 0   ) {
     pinOutput(1, 0, 1, 0);
   } else if ( doc["1"] == 1 ) {
     pinOutput(0, 0, 1, 0);
   }
-  delay(50);
   //outdoor lamp
   if ((oldvalueoutdoorLamp != doc["2"])) {
     oldvalueoutdoorLamp = doc["2"];
@@ -207,29 +226,23 @@ void readJSON( const char* json ) {
       pinOutput(0, 1, 1, 1);
     }
   }
-  delay(50);
   //radiator
   if ( doc["5"] == 0 ) {
     pinOutput(1, 1, 1, 0);
-    delay(50);
     pinOutput(1, 1, 0, 1);
   } else if ( doc["5"] == 1 ) {
     pinOutput(0, 1, 0, 1);
-    delay(50);
     pinOutput(0, 1, 1, 0);
-  }
-  delay(50);
-  //fan
+  }  //fan
   String b = doc["9"];
+
   analogWrite(pinFan, b.toInt());
-  delay(50);
   //timer 1
   if ( doc["13"] == 0 ) {
     pinOutput(1, 1, 0, 0);
   } else if ( doc["13"] == 1 ) {
     pinOutput(0, 1, 0, 0);
   }
-  delay(50);
   //timer 2
   if ( doc["14"] == 0  ) {
     pinOutput(1, 0, 0, 1);
@@ -238,19 +251,21 @@ void readJSON( const char* json ) {
   }
 }
 
-//void alarm() {
-//
-//  if  (fireAlarm | stove | waterLeakage | window) {
-//    pinOutput(1, 0, 0, 0);
-//    delay(50);
-//    pinOutput(0, 0,  1, 1);
-//  } else {
-//    pinOutput(1, 0, 0, 0);
-//    delay(50);
-//    pinOutput(1, 0, 1, 1);
-//  }
-//  delay(50);
-//}
+void alarm() {
+  if  (isAlarm) {
+    isAlarm = false;
+    if  ((fireAlarm | stove | waterLeakage | window | burglarAlarm )) {
+      pinOutput(1, 0, 0, 0);
+      pinOutput(0, 0,  1, 1); //led on
+    } else {
+      pinOutput(0, 0, 0, 0);
+      pinOutput(1, 0, 1, 1); //led off
+    }
+  }
+
+
+  
+}
 
 void LDRSensor() {
   //LDR
@@ -273,7 +288,7 @@ void temperature() {
 
   // House 1st inside temperature sensor calculated in both centimeter/ fahrenheit
   int readPin1 = analogRead(pinTempIn1); //enter pin to read
-  indoorTemp = (5.0 * readPin1 * 100.0) / (1024 * 10);
+  indoorTemp = (5.0 * readPin1 * 1000.0) / (1024 * 10);
 
   // House 2nd inside temperature sensor calculated in both centimeter/ fahrenheit
   //  int readPin2 = analogRead(pinTempIn2) //enter pin to read
@@ -316,4 +331,5 @@ void pinOutput(int a, int b, int c, int d) {
   digitalWrite(pin2, b);
   digitalWrite(pin3, c);
   digitalWrite(pin4, d);
+  delay(75);
 }

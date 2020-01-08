@@ -17,7 +17,7 @@ class RestClient{
     HTTPClient http;
     int httpCode; 
     String payload;
-    const String smartHouseURL = "http://10.0.0.3:8080/SmartHouseApi";
+    const String smartHouseURL = "http://10.0.0.5:8080/SmartHouseApi";
     const String devicesURL = "/devices";
 };
 #endif // !RestClient_H
